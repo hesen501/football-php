@@ -62,7 +62,7 @@ class DashboardService
         $isSuperAdmin = $actor->hasRole('SUPER_ADMIN');
 
         return Booking::query()
-            ->with(['user', 'field', 'venue'])
+            ->with(['user', 'field', 'venue', 'bookingItems.item'])
             ->when(! $isSuperAdmin, fn ($query) => $query->whereHas(
                 'venue.managers',
                 fn ($managers) => $managers->whereKey($actor->id),

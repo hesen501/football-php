@@ -4,6 +4,7 @@ use App\Modules\Auth\Providers\AuthModuleServiceProvider;
 use App\Modules\Booking\Providers\BookingModuleServiceProvider;
 use App\Modules\Dashboard\Providers\DashboardModuleServiceProvider;
 use App\Modules\Field\Providers\FieldModuleServiceProvider;
+use App\Modules\Item\Providers\ItemModuleServiceProvider;
 use App\Modules\User\Providers\UserModuleServiceProvider;
 use App\Modules\Venue\Providers\VenueModuleServiceProvider;
 use App\Providers\AppServiceProvider;
@@ -17,6 +18,7 @@ return [
     UserModuleServiceProvider::class,
     VenueModuleServiceProvider::class,
     FieldModuleServiceProvider::class,
+    ItemModuleServiceProvider::class,
     BookingModuleServiceProvider::class,
     DashboardModuleServiceProvider::class,
 ];

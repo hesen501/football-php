@@ -14,6 +14,13 @@ class RoleAndPermissionSeeder extends Seeder
         'fields.viewAny', 'fields.create', 'fields.update', 'fields.delete',
         'bookings.viewAny', 'bookings.create', 'bookings.update', 'bookings.cancel',
         'users.viewAny', 'users.create', 'users.update', 'users.delete',
+        // items.* is intentionally not granted to VENUE_MANAGER below — items
+        // are a single global catalog shared by every venue (no venue_id of
+        // their own), so unlike fields.*, letting any manager edit them would
+        // let one venue affect every other venue's add-on pricing/catalog.
+        // Managing the catalog is SUPER_ADMIN-only; browsing *active* items to
+        // add one to a booking needs no permission at all (see ItemPolicy).
+        'items.viewAny', 'items.create', 'items.update', 'items.delete',
         'dashboard.view',
     ];
 

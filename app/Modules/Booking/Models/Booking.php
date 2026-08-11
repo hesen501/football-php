@@ -13,6 +13,7 @@ use App\Shared\Http\Filtering\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Booking extends Model
 {
@@ -74,9 +75,42 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'cancelled_by_user_id');
     }
 
+    public function bookingItems(): HasMany
+    {
+        return $this->hasMany(BookingItem::class);
+    }
+
     public function isCancellable(): bool
     {
         return in_array($this->status, [BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
             && $this->start_time->isFuture();
+    }
+
+    /**
+     * Same window as isCancellable() — items only make sense to add/remove
+     * before the booking has happened and while it hasn't been cancelled.
+     */
+    public function canModifyItems(): bool
+    {
+        return $this->isCancellable();
+    }
+
+    /**
+     * Sum of booking_items.total_price — the price snapshot taken when each
+     * item was added, never the item's current catalog price.
+     */
+    public function itemsTotal(): float
+    {
+        return round($this->bookingItems->sum(fn (BookingItem $bookingItem) => (float) $bookingItem->total_price), 2);
+    }
+
+    /**
+     * base field-booking price (total_price) + items — what the customer
+     * actually owes. total_price itself stays a pure field-booking snapshot
+     * (see the bookings migration); this is a derived read, never stored.
+     */
+    public function grandTotal(): float
+    {
+        return round((float) $this->total_price + $this->itemsTotal(), 2);
     }
 }

@@ -20,7 +20,14 @@ class BookingResource extends JsonResource
             'end_time' => $this->end_time,
             'duration_minutes' => $this->duration_minutes,
             'hourly_price' => $this->hourly_price,
-            'total_price' => $this->total_price,
+            // base_price: the field-booking amount alone (bookings.total_price,
+            // unchanged). total_price below is base_price + items_total — see
+            // Booking::grandTotal(). commission/venue_amount are computed from
+            // the base amount only; items don't currently generate commission.
+            'base_price' => $this->total_price,
+            'items' => BookingItemResource::collection($this->bookingItems),
+            'items_total' => number_format($this->itemsTotal(), 2, '.', ''),
+            'total_price' => number_format($this->grandTotal(), 2, '.', ''),
             'commission_rate' => $this->commission_rate,
             'commission_amount' => $this->commission_amount,
             'venue_amount' => $this->venue_amount,

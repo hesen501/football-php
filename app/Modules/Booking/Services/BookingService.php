@@ -9,9 +9,12 @@ use App\Modules\Booking\Enums\BookingStatus;
 use App\Modules\Booking\Enums\PaymentStatus;
 use App\Modules\Booking\Exceptions\BookingSlotUnavailableException;
 use App\Modules\Booking\Models\Booking;
+use App\Modules\Booking\Models\BookingItem;
 use App\Modules\Booking\Models\PlatformSetting;
 use App\Modules\Field\Enums\FieldStatus;
 use App\Modules\Field\Models\Field;
+use App\Modules\Item\Enums\ItemStatus;
+use App\Modules\Item\Models\Item;
 use App\Modules\User\Models\User;
 use App\Modules\Venue\Enums\VenueStatus;
 use App\Modules\Venue\Models\Venue;
@@ -29,7 +32,7 @@ class BookingService
     public function list(User $actor, QueryParams $params, array $filters): LengthAwarePaginator
     {
         return Booking::query()
-            ->with(['user', 'field', 'venue'])
+            ->with(['user', 'field', 'venue', 'bookingItems.item'])
             // A VENUE_MANAGER only sees bookings for venues they manage;
             // SUPER_ADMIN (the only other role reaching this method) sees all.
             ->when(! $actor->hasRole('SUPER_ADMIN'), fn ($query) => $query->whereHas(
@@ -51,7 +54,7 @@ class BookingService
     public function listForCustomer(User $customer, QueryParams $params, array $filters): LengthAwarePaginator
     {
         return Booking::query()
-            ->with(['field.venue'])
+            ->with(['field.venue', 'bookingItems.item'])
             ->where('user_id', $customer->id)
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['payment_status'] ?? null, fn ($q, $v) => $q->where('payment_status', $v))
@@ -102,7 +105,7 @@ class BookingService
                         : BookingStatus::PENDING->value,
                     'payment_status' => PaymentStatus::PENDING->value,
                     'notes' => $data->notes,
-                ])->load(['user', 'field.venue']);
+                ])->load(['user', 'field.venue', 'bookingItems.item']);
             } catch (QueryException $e) {
                 // Last-resort guarantee: even if the advisory lock above was
                 // somehow bypassed, the DB EXCLUDE constraint (see the
@@ -126,7 +129,7 @@ class BookingService
 
         $booking->update(['status' => BookingStatus::CONFIRMED->value]);
 
-        return $booking->fresh(['user', 'field.venue']);
+        return $booking->fresh(['user', 'field.venue', 'bookingItems.item']);
     }
 
     public function cancel(Booking $booking, User $actor, ?string $reason = null): Booking
@@ -142,7 +145,98 @@ class BookingService
             'cancelled_by_user_id' => $actor->id,
         ]);
 
-        return $booking->fresh(['user', 'field.venue']);
+        return $booking->fresh(['user', 'field.venue', 'bookingItems.item']);
+    }
+
+    /**
+     * "Each request represents one item being taken" — increments quantity
+     * by 1 if this booking/item pair already has a row, otherwise creates
+     * one at quantity 1. unit_price is captured from the item's *current*
+     * price only on that first insert; every later increment reuses the
+     * already-stored unit_price, never re-reading items.price — that's the
+     * whole point of the snapshot (see the booking_items migration).
+     *
+     * Concurrency: lockForUpdate() on the booking row itself serializes
+     * every item mutation for this booking behind one lock (simpler than a
+     * per-item advisory lock, and correct since two concurrent "add" calls
+     * for the same new item would otherwise both see "no row yet" and both
+     * try to insert at quantity 1 instead of ending at 2). The DB's
+     * UNIQUE(booking_id, item_id) constraint is defense in depth on top of
+     * that, mirroring hasOverlap()/the bookings EXCLUDE constraint.
+     */
+    public function addItem(Booking $booking, int $itemId): Booking
+    {
+        return DB::transaction(function () use ($booking, $itemId) {
+            $booking = Booking::query()->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+
+            if (! $booking->canModifyItems()) {
+                throw new BusinessRuleException('This booking can no longer be modified.', 'BOOKING_NOT_MODIFIABLE');
+            }
+
+            $item = Item::query()->findOrFail($itemId);
+
+            if ($item->status !== ItemStatus::ACTIVE) {
+                throw new BusinessRuleException('This item is not available.', 'ITEM_NOT_ACTIVE');
+            }
+
+            $bookingItem = BookingItem::query()
+                ->where('booking_id', $booking->id)
+                ->where('item_id', $item->id)
+                ->first();
+
+            if ($bookingItem) {
+                $newQuantity = $bookingItem->quantity + 1;
+
+                $bookingItem->update([
+                    'quantity' => $newQuantity,
+                    'total_price' => round($newQuantity * (float) $bookingItem->unit_price, 2),
+                ]);
+            } else {
+                BookingItem::query()->create([
+                    'booking_id' => $booking->id,
+                    'item_id' => $item->id,
+                    'quantity' => 1,
+                    'unit_price' => $item->price,
+                    'total_price' => $item->price,
+                ]);
+            }
+
+            return $booking->fresh(['user', 'field.venue', 'bookingItems.item']);
+        });
+    }
+
+    /**
+     * Removes one unit; deletes the booking_items row entirely once
+     * quantity would reach 0. Same booking-row lock as addItem() — see
+     * there for why.
+     */
+    public function removeItem(Booking $booking, Item $item): Booking
+    {
+        return DB::transaction(function () use ($booking, $item) {
+            $booking = Booking::query()->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+
+            if (! $booking->canModifyItems()) {
+                throw new BusinessRuleException('This booking can no longer be modified.', 'BOOKING_NOT_MODIFIABLE');
+            }
+
+            $bookingItem = BookingItem::query()
+                ->where('booking_id', $booking->id)
+                ->where('item_id', $item->id)
+                ->firstOrFail();
+
+            if ($bookingItem->quantity <= 1) {
+                $bookingItem->delete();
+            } else {
+                $newQuantity = $bookingItem->quantity - 1;
+
+                $bookingItem->update([
+                    'quantity' => $newQuantity,
+                    'total_price' => round($newQuantity * (float) $bookingItem->unit_price, 2),
+                ]);
+            }
+
+            return $booking->fresh(['user', 'field.venue', 'bookingItems.item']);
+        });
     }
 
     public function calculatePrice(Field $field, int $durationHours, BookingSource $source): BookingPriceBreakdown
