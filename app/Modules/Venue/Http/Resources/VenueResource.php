@@ -23,6 +23,10 @@ class VenueResource extends JsonResource
             'email' => $this->email,
             'status' => $this->status,
             'managers' => $this->whenLoaded('managers', fn () => UserResource::collection($this->managers)),
+            'working_hours' => $this->whenLoaded(
+                'workingHours',
+                fn () => VenueWorkingHourResource::collection($this->workingHours),
+            ),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

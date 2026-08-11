@@ -14,6 +14,8 @@ use App\Modules\Field\Enums\FieldStatus;
 use App\Modules\Field\Models\Field;
 use App\Modules\User\Models\User;
 use App\Modules\Venue\Enums\VenueStatus;
+use App\Modules\Venue\Models\Venue;
+use App\Modules\Venue\Models\VenueWorkingHour;
 use App\Shared\Exceptions\BusinessRuleException;
 use App\Shared\Http\Filtering\QueryParams;
 use Carbon\CarbonImmutable;
@@ -59,12 +61,14 @@ class BookingService
 
     public function create(CreateBookingData $data): Booking
     {
-        $field = Field::query()->with('venue')->findOrFail($data->fieldId);
+        $field = Field::query()->with('venue.workingHours')->findOrFail($data->fieldId);
 
         $this->assertFieldBookable($field);
 
         $startTime = $data->startTime;
         $endTime = $startTime->addHours($data->durationHours);
+
+        $this->assertWithinWorkingHours($field->venue, $startTime, $endTime);
 
         return DB::transaction(function () use ($data, $field, $startTime, $endTime) {
             // Serializes concurrent booking attempts on the *same field*
@@ -159,14 +163,19 @@ class BookingService
 
     /**
      * Hourly availability for a field on a given date — every hour of the
-     * day is returned (no configurable "business hours" concept exists yet),
-     * each flagged available/booked.
+     * day is returned, each flagged available/booked. An hour outside the
+     * venue's working hours for that day of the week (see
+     * VenueWorkingHour) comes back unavailable too, same as an hour that's
+     * already booked — either way it can't be booked.
      *
      * @return array<int, array{start_time: CarbonImmutable, end_time: CarbonImmutable, available: bool}>
      */
     public function availability(Field $field, CarbonImmutable $date): array
     {
+        $field->loadMissing('venue.workingHours');
+
         $dayStart = $date->startOfDay();
+        $workingHours = $field->venue->workingHoursFor($dayStart->dayOfWeek);
 
         $bookings = Booking::query()
             ->where('field_id', $field->id)
@@ -187,7 +196,7 @@ class BookingService
             $slots[] = [
                 'start_time' => $slotStart,
                 'end_time' => $slotEnd,
-                'available' => ! $isBooked,
+                'available' => ! $isBooked && $this->isWithinWorkingHours($field->venue, $workingHours, $slotStart, $slotEnd),
             ];
         }
 
@@ -203,6 +212,59 @@ class BookingService
         if ($field->venue->status !== VenueStatus::ACTIVE) {
             throw new BusinessRuleException('This venue is not currently active.', 'VENUE_NOT_ACTIVE');
         }
+    }
+
+    /**
+     * Rejects a booking that starts before the venue opens, ends after it
+     * closes, or falls on a day of the week the venue marked closed — this
+     * is what stops a field from being bookable at midnight (or any other
+     * hour outside a venue's chosen window). A venue with no working-hours
+     * rows at all (see Venue::hasConfiguredWorkingHours()) is treated as
+     * unrestricted, for backward compatibility with venues that predate
+     * this feature or were written directly rather than via VenueService.
+     */
+    private function assertWithinWorkingHours(Venue $venue, CarbonImmutable $start, CarbonImmutable $end): void
+    {
+        if (! $venue->hasConfiguredWorkingHours()) {
+            return;
+        }
+
+        $hours = $venue->workingHoursFor($start->dayOfWeek);
+
+        if (! $this->isWithinWorkingHours($venue, $hours, $start, $end)) {
+            throw new BusinessRuleException(
+                $hours && ! $hours->is_closed
+                    ? sprintf(
+                        'This venue is only bookable between %s and %s on this day.',
+                        substr($hours->opens_at, 0, 5),
+                        substr($hours->closes_at, 0, 5),
+                    )
+                    : 'This venue is closed on the selected day.',
+                'OUTSIDE_WORKING_HOURS',
+            );
+        }
+    }
+
+    /**
+     * Whole booking must fit inside a single day's window — a start/end
+     * that would straddle midnight into the next day's own (possibly
+     * different, possibly closed) hours is rejected rather than partially
+     * validated against two different rows.
+     */
+    private function isWithinWorkingHours(Venue $venue, ?VenueWorkingHour $hours, CarbonImmutable $start, CarbonImmutable $end): bool
+    {
+        if (! $venue->hasConfiguredWorkingHours()) {
+            return true;
+        }
+
+        if (! $hours || $hours->is_closed) {
+            return false;
+        }
+
+        $opensAt = $start->setTimeFromTimeString($hours->opens_at);
+        $closesAt = $start->setTimeFromTimeString($hours->closes_at);
+
+        return $start->gte($opensAt) && $end->lte($closesAt);
     }
 
     private function hasOverlap(int $fieldId, CarbonImmutable $start, CarbonImmutable $end): bool

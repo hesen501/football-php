@@ -26,6 +26,12 @@ class VenuePublicResource extends JsonResource
             'longitude' => $this->longitude,
             'phone' => $this->phone,
             'email' => $this->email,
+            // Empty for a venue with no configured hours (see BookingService)
+            // — treated as bookable any hour, not as "closed every day".
+            'working_hours' => $this->whenLoaded(
+                'workingHours',
+                fn () => VenueWorkingHourResource::collection($this->workingHours),
+            ),
         ];
     }
 }

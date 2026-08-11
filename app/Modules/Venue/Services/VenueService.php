@@ -5,19 +5,29 @@ namespace App\Modules\Venue\Services;
 use App\Modules\User\Models\User;
 use App\Modules\Venue\Enums\VenueStatus;
 use App\Modules\Venue\Models\Venue;
+use App\Modules\Venue\Models\VenueWorkingHour;
 use App\Shared\Exceptions\BusinessRuleException;
 use App\Shared\Http\Filtering\QueryParams;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class VenueService
 {
+    // Seeded for every day of a newly created venue — see
+    // seedDefaultWorkingHours(). Chosen as a reasonable default football-venue
+    // day; managers can narrow it (or close specific days) afterwards via
+    // setWorkingHours().
+    private const DEFAULT_OPENS_AT = '08:00';
+
+    private const DEFAULT_CLOSES_AT = '23:00';
+
     /** @param array{status?: string, manager_id?: int} $filters */
     public function list(User $actor, QueryParams $params, array $filters): LengthAwarePaginator
     {
         return Venue::query()
-            ->with('managers')
+            ->with(['managers', 'workingHours'])
             // A VENUE_MANAGER only ever sees venues they co-manage; SUPER_ADMIN
             // sees everything (and reaches this method at all only because
             // Gate::before already granted the viewAny check).
@@ -59,7 +69,9 @@ class VenueService
                 $this->attachManager($venue, (int) $data['manager_id']);
             }
 
-            return $venue->load('managers');
+            $this->seedDefaultWorkingHours($venue);
+
+            return $venue->load(['managers', 'workingHours']);
         });
     }
 
@@ -74,7 +86,7 @@ class VenueService
 
         $venue->save();
 
-        return $venue->load('managers');
+        return $venue->load(['managers', 'workingHours']);
     }
 
     public function delete(Venue $venue): void
@@ -104,6 +116,60 @@ class VenueService
         }
 
         $venue->managers()->detach($user->id);
+    }
+
+    public function getWorkingHours(Venue $venue): Collection
+    {
+        return $venue->workingHours()->get();
+    }
+
+    /**
+     * Replaces all 7 days in one go — the request layer (see
+     * UpdateVenueWorkingHoursRequest) requires exactly one entry per
+     * day_of_week 0-6, so there's never a partial update to reconcile.
+     *
+     * @param  array<int, array{day_of_week: int, is_closed: bool, opens_at?: string|null, closes_at?: string|null}>  $days
+     */
+    public function setWorkingHours(Venue $venue, array $days): Collection
+    {
+        return DB::transaction(function () use ($venue, $days) {
+            foreach ($days as $day) {
+                VenueWorkingHour::query()->updateOrCreate(
+                    ['venue_id' => $venue->id, 'day_of_week' => $day['day_of_week']],
+                    [
+                        'is_closed' => $day['is_closed'],
+                        // A closed day never keeps stale hours around.
+                        'opens_at' => $day['is_closed'] ? null : $day['opens_at'],
+                        'closes_at' => $day['is_closed'] ? null : $day['closes_at'],
+                    ],
+                );
+            }
+
+            return $venue->workingHours()->get();
+        });
+    }
+
+    /**
+     * Every day open 08:00-23:00 by default — see the DEFAULT_* constants.
+     * Only runs for venues created through create() above; factories/seeders
+     * that write venues directly skip this (BookingService treats a venue
+     * with zero working-hours rows as unrestricted).
+     */
+    private function seedDefaultWorkingHours(Venue $venue): void
+    {
+        $now = now();
+
+        $rows = array_map(fn (int $day) => [
+            'venue_id' => $venue->id,
+            'day_of_week' => $day,
+            'is_closed' => false,
+            'opens_at' => self::DEFAULT_OPENS_AT,
+            'closes_at' => self::DEFAULT_CLOSES_AT,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], range(0, 6));
+
+        VenueWorkingHour::query()->insert($rows);
     }
 
     private function uniqueSlug(string $name): string
