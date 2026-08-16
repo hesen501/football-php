@@ -27,7 +27,7 @@ class VenueService
     public function list(User $actor, QueryParams $params, array $filters): LengthAwarePaginator
     {
         return Venue::query()
-            ->with(['managers', 'workingHours'])
+            ->with(['managers', 'workingHours', 'media', 'coverMedia'])
             // A VENUE_MANAGER only ever sees venues they co-manage; SUPER_ADMIN
             // sees everything (and reaches this method at all only because
             // Gate::before already granted the viewAny check).
@@ -71,7 +71,7 @@ class VenueService
 
             $this->seedDefaultWorkingHours($venue);
 
-            return $venue->load(['managers', 'workingHours']);
+            return $venue->load(['managers', 'workingHours', 'media', 'coverMedia']);
         });
     }
 
@@ -86,7 +86,7 @@ class VenueService
 
         $venue->save();
 
-        return $venue->load(['managers', 'workingHours']);
+        return $venue->load(['managers', 'workingHours', 'media', 'coverMedia']);
     }
 
     public function delete(Venue $venue): void

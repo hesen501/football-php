@@ -36,7 +36,7 @@ class FieldController extends Controller
     {
         $this->authorize('view', $field);
 
-        return FieldResource::make($field->load('venue'));
+        return FieldResource::make($field->load(['venue', 'media', 'coverMedia']));
     }
 
     public function update(UpdateFieldRequest $request, Field $field)

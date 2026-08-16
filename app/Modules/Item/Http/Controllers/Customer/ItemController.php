@@ -21,6 +21,7 @@ class ItemController extends Controller
         $params = QueryParams::fromRequest($request);
 
         $items = Item::query()
+            ->with('imageMedia')
             ->where('status', ItemStatus::ACTIVE->value)
             ->applySearch($params, ['name'])
             ->applySort($params, ['name', 'price'], 'name')

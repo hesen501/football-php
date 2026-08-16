@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Venue\Http\Controllers\Admin\VenueController as AdminVenueController;
+use App\Modules\Venue\Http\Controllers\Admin\VenueImageController;
 use App\Modules\Venue\Http\Controllers\Admin\VenueManagerController;
 use App\Modules\Venue\Http\Controllers\Admin\VenueWorkingHoursController;
 use App\Modules\Venue\Http\Controllers\Customer\VenueController as CustomerVenueController;
@@ -18,6 +19,14 @@ Route::prefix('api/admin')->middleware(['api', 'auth:sanctum', 'admin.panel'])->
     Route::name('admin.venues.workingHours.')->group(function () {
         Route::get('venues/{venue}/working-hours', [VenueWorkingHoursController::class, 'index'])->name('index');
         Route::put('venues/{venue}/working-hours', [VenueWorkingHoursController::class, 'update'])->name('update');
+    });
+
+    Route::name('admin.venues.images.')->group(function () {
+        Route::get('venues/{venue}/images', [VenueImageController::class, 'index'])->name('index');
+        Route::post('venues/{venue}/images', [VenueImageController::class, 'store'])->name('store');
+        Route::patch('venues/{venue}/images/order', [VenueImageController::class, 'reorder'])->name('reorder');
+        Route::delete('venues/{venue}/images/{media}', [VenueImageController::class, 'destroy'])->name('destroy');
+        Route::put('venues/{venue}/images/{media}/cover', [VenueImageController::class, 'setCover'])->name('setCover');
     });
 });
 

@@ -35,7 +35,7 @@ class ItemController extends Controller
     {
         $this->authorize('view', $item);
 
-        return ItemResource::make($item);
+        return ItemResource::make($item->load('imageMedia'));
     }
 
     public function update(UpdateItemRequest $request, Item $item)

@@ -2,6 +2,7 @@
 
 namespace App\Modules\User\Database\Factories;
 
+use App\Modules\User\Enums\UserRole;
 use App\Modules\User\Enums\UserStatus;
 use App\Modules\User\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -49,16 +50,16 @@ class UserFactory extends Factory
 
     public function superAdmin(): static
     {
-        return $this->afterCreating(fn (User $user) => $user->assignRole('SUPER_ADMIN'));
+        return $this->afterCreating(fn (User $user) => $user->assignRole(UserRole::SUPER_ADMIN));
     }
 
     public function venueManager(): static
     {
-        return $this->afterCreating(fn (User $user) => $user->assignRole('VENUE_MANAGER'));
+        return $this->afterCreating(fn (User $user) => $user->assignRole(UserRole::VENUE_MANAGER));
     }
 
     public function customer(): static
     {
-        return $this->afterCreating(fn (User $user) => $user->assignRole('CUSTOMER'));
+        return $this->afterCreating(fn (User $user) => $user->assignRole(UserRole::CUSTOMER));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Modules\User\Http\Resources;
 
+use App\Modules\Media\Http\Resources\MediaResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,6 +22,7 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'status' => $this->status,
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')),
+            'avatar' => $this->whenLoaded('avatarMedia', fn () => $this->avatarMedia ? MediaResource::make($this->avatarMedia) : null),
             'email_verified_at' => $this->email_verified_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

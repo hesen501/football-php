@@ -2,6 +2,7 @@
 
 namespace App\Modules\Item\Http\Resources;
 
+use App\Modules\Media\Http\Resources\MediaResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,6 +20,7 @@ class ItemPublicResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'price' => $this->price,
+            'image' => $this->whenLoaded('imageMedia', fn () => $this->imageMedia ? MediaResource::make($this->imageMedia) : null),
         ];
     }
 }

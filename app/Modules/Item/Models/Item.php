@@ -5,6 +5,7 @@ namespace App\Modules\Item\Models;
 use App\Modules\Booking\Models\BookingItem;
 use App\Modules\Item\Database\Factories\ItemFactory;
 use App\Modules\Item\Enums\ItemStatus;
+use App\Shared\Concerns\HasMedia;
 use App\Shared\Http\Filtering\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Item extends Model
 {
     /** @use HasFactory<ItemFactory> */
-    use Filterable, HasFactory, SoftDeletes;
+    use Filterable, HasFactory, HasMedia, SoftDeletes;
 
     protected $fillable = [
         'name',

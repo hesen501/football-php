@@ -35,7 +35,7 @@ class VenueController extends Controller
     {
         $this->authorize('view', $venue);
 
-        return VenueResource::make($venue->load(['managers', 'workingHours']));
+        return VenueResource::make($venue->load(['managers', 'workingHours', 'media', 'coverMedia']));
     }
 
     public function update(UpdateVenueRequest $request, Venue $venue)

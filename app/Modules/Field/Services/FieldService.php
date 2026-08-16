@@ -15,7 +15,7 @@ class FieldService
     public function list(User $actor, QueryParams $params, array $filters): LengthAwarePaginator
     {
         return Field::query()
-            ->with('venue')
+            ->with(['venue', 'media', 'coverMedia'])
             // A VENUE_MANAGER only sees fields belonging to venues they
             // manage; SUPER_ADMIN (the only other role that can reach this
             // method) sees everything.
@@ -40,7 +40,7 @@ class FieldService
             'capacity' => $data['capacity'],
             'hourly_price' => $data['hourly_price'],
             'status' => $data['status'] ?? FieldStatus::ACTIVE->value,
-        ])->load('venue');
+        ])->load(['venue', 'media', 'coverMedia']);
     }
 
     /** @param array{name?: string, description?: string|null, type?: string, capacity?: int, hourly_price?: float, status?: string} $data */
@@ -54,7 +54,7 @@ class FieldService
 
         $field->save();
 
-        return $field->load('venue');
+        return $field->load(['venue', 'media', 'coverMedia']);
     }
 
     public function delete(Field $field): void

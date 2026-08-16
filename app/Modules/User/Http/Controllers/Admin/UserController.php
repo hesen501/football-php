@@ -30,14 +30,16 @@ class UserController extends Controller
     {
         $user = $this->users->create($request->validated());
 
-        return UserResource::make($user)->response()->setStatusCode(Response::HTTP_CREATED);
+        return UserResource::make($user)
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
     }
 
     public function show(User $user)
     {
         $this->authorize('view', $user);
 
-        return UserResource::make($user->load('roles'));
+        return UserResource::make($user->load(['roles', 'avatarMedia']));
     }
 
     public function update(UpdateUserRequest $request, User $user)

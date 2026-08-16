@@ -67,7 +67,7 @@ class AuthService
 
         $user->sendEmailVerificationNotification();
 
-        return [$user->load('roles'), $user->createToken('customer-app')->plainTextToken];
+        return [$user->load(['roles', 'avatarMedia']), $user->createToken('customer-app')->plainTextToken];
     }
 
     public function logout(User $user): void
@@ -121,6 +121,6 @@ class AuthService
             ]);
         }
 
-        return $user->load('roles');
+        return $user->load(['roles', 'avatarMedia']);
     }
 }

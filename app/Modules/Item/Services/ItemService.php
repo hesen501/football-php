@@ -13,6 +13,7 @@ class ItemService
     public function list(QueryParams $params, array $filters): LengthAwarePaginator
     {
         return Item::query()
+            ->with('imageMedia')
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->applySearch($params, ['name'])
             ->applySort($params, ['name', 'price', 'created_at'], '-created_at')
@@ -26,7 +27,7 @@ class ItemService
             'name' => $data['name'],
             'price' => $data['price'],
             'status' => $data['status'] ?? ItemStatus::ACTIVE->value,
-        ]);
+        ])->load('imageMedia');
     }
 
     /** @param array{name?: string, price?: float, status?: string} $data */
@@ -38,7 +39,7 @@ class ItemService
 
         $item->save();
 
-        return $item;
+        return $item->load('imageMedia');
     }
 
     public function delete(Item $item): void

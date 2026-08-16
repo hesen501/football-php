@@ -7,6 +7,7 @@ use App\Modules\Field\Models\Field;
 use App\Modules\User\Models\User;
 use App\Modules\Venue\Database\Factories\VenueFactory;
 use App\Modules\Venue\Enums\VenueStatus;
+use App\Shared\Concerns\HasMedia;
 use App\Shared\Http\Filtering\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Venue extends Model
 {
     /** @use HasFactory<VenueFactory> */
-    use Filterable, HasFactory, SoftDeletes;
+    use Filterable, HasFactory, HasMedia, SoftDeletes;
 
     protected $fillable = [
         'name',
