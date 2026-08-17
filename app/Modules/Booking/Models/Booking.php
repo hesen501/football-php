@@ -13,6 +13,7 @@ use App\Shared\Http\Filtering\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Booking extends Model
 {
@@ -74,9 +75,52 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'cancelled_by_user_id');
     }
 
+    /**
+     * Ordered by id (= insertion/add order) explicitly — without this,
+     * Postgres has no guaranteed row order, and specifically will often
+     * return a just-updated row *last* (an UPDATE frequently can't be done
+     * in-place and instead appends a new physical tuple version at the end
+     * of the table). Omitting this ordering is what made incrementing an
+     * item's quantity look like it "sorted" that item to the bottom of the
+     * list on the next fetch — it was really just Postgres's unordered scan
+     * order shifting underneath an ORDER BY-less query.
+     */
+    public function bookingItems(): HasMany
+    {
+        return $this->hasMany(BookingItem::class)->orderBy('id');
+    }
+
     public function isCancellable(): bool
     {
         return in_array($this->status, [BookingStatus::PENDING, BookingStatus::CONFIRMED], true)
             && $this->start_time->isFuture();
+    }
+
+    /**
+     * Same window as isCancellable() — items only make sense to add/remove
+     * before the booking has happened and while it hasn't been cancelled.
+     */
+    public function canModifyItems(): bool
+    {
+        return $this->isCancellable();
+    }
+
+    /**
+     * Sum of booking_items.total_price — the price snapshot taken when each
+     * item was added, never the item's current catalog price.
+     */
+    public function itemsTotal(): float
+    {
+        return round($this->bookingItems->sum(fn (BookingItem $bookingItem) => (float) $bookingItem->total_price), 2);
+    }
+
+    /**
+     * base field-booking price (total_price) + items — what the customer
+     * actually owes. total_price itself stays a pure field-booking snapshot
+     * (see the bookings migration); this is a derived read, never stored.
+     */
+    public function grandTotal(): float
+    {
+        return round((float) $this->total_price + $this->itemsTotal(), 2);
     }
 }

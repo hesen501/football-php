@@ -16,6 +16,7 @@ class VenueController extends Controller
         $params = QueryParams::fromRequest($request);
 
         $venues = Venue::query()
+            ->with(['workingHours', 'media', 'coverMedia'])
             ->where('status', VenueStatus::ACTIVE->value)
             ->when($request->filled('city'), fn ($query) => $query->where('city', $request->string('city')))
             ->applySearch($params, ['name', 'city', 'address'])
@@ -32,6 +33,7 @@ class VenueController extends Controller
     public function show(string $venue)
     {
         $venue = Venue::query()
+            ->with(['workingHours', 'media', 'coverMedia'])
             ->where('status', VenueStatus::ACTIVE->value)
             ->where('slug', $venue)
             ->firstOrFail();

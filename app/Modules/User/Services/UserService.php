@@ -14,7 +14,7 @@ class UserService
     public function list(QueryParams $params, array $filters): LengthAwarePaginator
     {
         return User::query()
-            ->with('roles')
+            ->with(['roles', 'avatarMedia'])
             ->when($filters['role'] ?? null, fn ($query, $role) => $query->whereHas(
                 'roles',
                 fn ($roles) => $roles->where('name', $role),
@@ -42,7 +42,7 @@ class UserService
 
             $user->assignRole($data['role']);
 
-            return $user->load('roles');
+            return $user->load(['roles', 'avatarMedia']);
         });
     }
 
@@ -62,7 +62,7 @@ class UserService
                 $user->syncRoles([$data['role']]);
             }
 
-            return $user->load('roles');
+            return $user->load(['roles', 'avatarMedia']);
         });
     }
 
@@ -100,7 +100,7 @@ class UserService
                 $user->sendEmailVerificationNotification();
             }
 
-            return $user->load('roles');
+            return $user->load(['roles', 'avatarMedia']);
         });
     }
 }

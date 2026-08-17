@@ -2,6 +2,7 @@
 
 namespace App\Modules\Venue\Http\Resources;
 
+use App\Modules\Media\Http\Resources\MediaResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,6 +27,14 @@ class VenuePublicResource extends JsonResource
             'longitude' => $this->longitude,
             'phone' => $this->phone,
             'email' => $this->email,
+            // Empty for a venue with no configured hours (see BookingService)
+            // — treated as bookable any hour, not as "closed every day".
+            'working_hours' => $this->whenLoaded(
+                'workingHours',
+                fn () => VenueWorkingHourResource::collection($this->workingHours),
+            ),
+            'cover_image' => $this->whenLoaded('coverMedia', fn () => $this->coverMedia ? MediaResource::make($this->coverMedia) : null),
+            'images' => $this->whenLoaded('media', fn () => MediaResource::collection($this->media)),
         ];
     }
 }

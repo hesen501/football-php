@@ -6,6 +6,7 @@ use App\Modules\Booking\Models\Booking;
 use App\Modules\User\Database\Factories\UserFactory;
 use App\Modules\User\Enums\UserStatus;
 use App\Modules\Venue\Models\Venue;
+use App\Shared\Concerns\HasMedia;
 use App\Shared\Http\Filtering\Filterable;
 use Illuminate\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
@@ -21,7 +22,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements MustVerifyEmailContract
 {
     /** @use HasFactory<UserFactory> */
-    use Filterable, HasApiTokens, HasFactory, HasRoles, MustVerifyEmail, Notifiable, SoftDeletes;
+    use Filterable, HasApiTokens, HasFactory, HasMedia, HasRoles, MustVerifyEmail, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name',

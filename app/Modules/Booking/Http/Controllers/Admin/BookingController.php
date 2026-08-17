@@ -51,7 +51,7 @@ class BookingController extends Controller
     {
         $this->authorize('view', $booking);
 
-        return BookingResource::make($booking->load(['user', 'field.venue']));
+        return BookingResource::make($booking->load(['user', 'field.venue', 'bookingItems.item']));
     }
 
     public function confirm(Booking $booking)

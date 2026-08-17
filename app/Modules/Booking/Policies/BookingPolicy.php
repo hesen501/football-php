@@ -62,4 +62,21 @@ class BookingPolicy
 
         return $user->hasPermissionTo('bookings.cancel') && $booking->venue->isManagedBy($user);
     }
+
+    /**
+     * Governs POST/DELETE .../bookings/{booking}/items on both surfaces —
+     * same ownership split as cancel(): a customer may modify their own
+     * booking's items; on the admin surface it's gated by the same
+     * 'bookings.update' permission used for other booking mutations (no
+     * dedicated items permission — adding/removing an item is just another
+     * way of updating a booking).
+     */
+    public function manageItems(User $user, Booking $booking): bool
+    {
+        if ($booking->user_id === $user->id) {
+            return true;
+        }
+
+        return $user->hasPermissionTo('bookings.update') && $booking->venue->isManagedBy($user);
+    }
 }

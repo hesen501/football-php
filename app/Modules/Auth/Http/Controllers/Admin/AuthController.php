@@ -35,6 +35,6 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return UserResource::make($request->user()->load('roles'));
+        return UserResource::make($request->user()->load(['roles', 'avatarMedia']));
     }
 }

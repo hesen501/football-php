@@ -23,6 +23,7 @@ class FieldController extends Controller
         $params = QueryParams::fromRequest($request);
 
         $fields = $venueModel->fields()
+            ->with(['media', 'coverMedia'])
             ->where('status', FieldStatus::ACTIVE->value)
             ->when($request->filled('type'), fn ($query) => $query->where('type', $request->string('type')))
             ->applySort($params, ['name', 'hourly_price'], 'name')
@@ -37,6 +38,6 @@ class FieldController extends Controller
             abort(404);
         }
 
-        return FieldPublicResource::make($field->load('venue'));
+        return FieldPublicResource::make($field->load(['venue', 'media', 'coverMedia']));
     }
 }

@@ -14,7 +14,7 @@ class ProfileController extends Controller
 
     public function show(Request $request)
     {
-        return UserResource::make($request->user()->load('roles'));
+        return UserResource::make($request->user()->load(['roles', 'avatarMedia']));
     }
 
     public function update(UpdateProfileRequest $request)

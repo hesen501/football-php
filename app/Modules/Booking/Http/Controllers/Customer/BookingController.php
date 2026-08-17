@@ -61,7 +61,7 @@ class BookingController extends Controller
     {
         $this->authorize('view', $booking);
 
-        return CustomerBookingResource::make($booking->load('field.venue'));
+        return CustomerBookingResource::make($booking->load(['field.venue', 'bookingItems.item']));
     }
 
     public function cancel(CancelBookingRequest $request, Booking $booking)

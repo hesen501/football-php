@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Field\Http\Controllers\Admin\FieldController as AdminFieldController;
+use App\Modules\Field\Http\Controllers\Admin\FieldImageController;
 use App\Modules\Field\Http\Controllers\Customer\FieldController as CustomerFieldController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,14 @@ Route::prefix('api/admin')->middleware(['api', 'auth:sanctum', 'admin.panel'])->
     // without one, and this keeps FieldPolicy::create's ownership check
     // (against the venue, not a not-yet-existing field) natural.
     Route::post('venues/{venue}/fields', [AdminFieldController::class, 'store'])->name('store');
+
+    Route::name('images.')->group(function () {
+        Route::get('fields/{field}/images', [FieldImageController::class, 'index'])->name('index');
+        Route::post('fields/{field}/images', [FieldImageController::class, 'store'])->name('store');
+        Route::patch('fields/{field}/images/order', [FieldImageController::class, 'reorder'])->name('reorder');
+        Route::delete('fields/{field}/images/{media}', [FieldImageController::class, 'destroy'])->name('destroy');
+        Route::put('fields/{field}/images/{media}/cover', [FieldImageController::class, 'setCover'])->name('setCover');
+    });
 });
 
 // Public discovery — no auth required.

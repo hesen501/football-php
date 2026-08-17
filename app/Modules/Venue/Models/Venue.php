@@ -7,6 +7,7 @@ use App\Modules\Field\Models\Field;
 use App\Modules\User\Models\User;
 use App\Modules\Venue\Database\Factories\VenueFactory;
 use App\Modules\Venue\Enums\VenueStatus;
+use App\Shared\Concerns\HasMedia;
 use App\Shared\Http\Filtering\Filterable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Venue extends Model
 {
     /** @use HasFactory<VenueFactory> */
-    use Filterable, HasFactory, SoftDeletes;
+    use Filterable, HasFactory, HasMedia, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -54,6 +55,32 @@ class Venue extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function workingHours(): HasMany
+    {
+        return $this->hasMany(VenueWorkingHour::class)->orderBy('day_of_week');
+    }
+
+    /**
+     * The configured window for one day of the week (0=Sunday..6=Saturday,
+     * matching Carbon's ->dayOfWeek), or null if that day was never seeded —
+     * which for a venue created through VenueService only happens if
+     * workingHours() wasn't eager-loaded, not because the day is missing.
+     */
+    public function workingHoursFor(int $dayOfWeek): ?VenueWorkingHour
+    {
+        return $this->workingHours->firstWhere('day_of_week', $dayOfWeek);
+    }
+
+    /**
+     * False for venues written directly (factories/seeders) rather than
+     * through VenueService::create() — BookingService treats those as
+     * unrestricted (bookable any hour) for backward compatibility.
+     */
+    public function hasConfiguredWorkingHours(): bool
+    {
+        return $this->workingHours->isNotEmpty();
     }
 
     /**
