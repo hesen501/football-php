@@ -75,9 +75,19 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'cancelled_by_user_id');
     }
 
+    /**
+     * Ordered by id (= insertion/add order) explicitly — without this,
+     * Postgres has no guaranteed row order, and specifically will often
+     * return a just-updated row *last* (an UPDATE frequently can't be done
+     * in-place and instead appends a new physical tuple version at the end
+     * of the table). Omitting this ordering is what made incrementing an
+     * item's quantity look like it "sorted" that item to the bottom of the
+     * list on the next fetch — it was really just Postgres's unordered scan
+     * order shifting underneath an ORDER BY-less query.
+     */
     public function bookingItems(): HasMany
     {
-        return $this->hasMany(BookingItem::class);
+        return $this->hasMany(BookingItem::class)->orderBy('id');
     }
 
     public function isCancellable(): bool
